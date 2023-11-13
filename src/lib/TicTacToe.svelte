@@ -1,12 +1,14 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
     import { currentUser, pb } from './pocketbase';
+    import Square from "./Square.svelte";
 
     console.log("script");
 
     let mark: string;
     let position: number;
     let games = [];
+    let positions = [1,2,3,4,5,6,7,8,9];
 
     onMount(async () => {
         console.log("on mount");
@@ -78,4 +80,22 @@
     <input placeholder="Position" type="text" bind:value={position} />
     <button type="submit">Turn</button>
 </form>
+
+<h1>Photo album</h1>
+
+<div class="tictactoe">
+	{#each positions as position}
+        <Square position={position} mark="" game={games[0]}/>
+	{/each}
+</div>
+
+<style>
+	.tictactoe {
+		width: 22em;
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		grid-gap: 2px;
+        background-color: black;
+	}
+</style>
 

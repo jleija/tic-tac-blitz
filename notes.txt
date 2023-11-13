@@ -1,0 +1,11 @@
+Write a tic-tac-toe game that runs in the browser.
+
+Requirements:
+
+. User can create a new game board
+. Allow two (and only two) players to connect to a game board
+. Persist game state on the server in a database of your choice
+. Follow standard rules for tic-tac-toe (or noughts and crosses)
+. Display the game result and persist in the database at the end of the game
+. Display a ranking of the top five players and allow players to start a new game
+

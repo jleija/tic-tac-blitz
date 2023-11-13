@@ -14,7 +14,7 @@
                 username,
                 password,
                 passwordConfirm: password,
-                name: 'XPlayer',
+                name: username,
             };
             const createdUser = await pb.collection('users').create(data);
             await login();
