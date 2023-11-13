@@ -12,10 +12,10 @@
         console.log("on mount");
         const resultList = await pb.collection('games').getList(1,50, {
             sort: 'created',
-            // expand: 'users,turns',
-            expand: 'player1',
+            expand: 'player1,player2,turns(game)',
         });
         games = resultList.items;
+        console.log("mounted games");
         console.log(games);
     });
 
@@ -33,6 +33,7 @@
 
     async function newTurn() {
         const data = {
+            game: games[0].id,
             player: $currentUser.id,
             mark: mark,
             position: position,
@@ -56,3 +57,25 @@
 <form on:submit|preventDefault={newGame}>
     <button type="submit">Play</button>
 </form>
+
+<div class="turns">
+    <h1>Turns</h1>
+    {#each games as game}
+        {#if game.expand["turns(game)"] }
+            {#each game.expand["turns(game)"] as turn}
+                <div class="turn">
+                    <div>
+                        <p class="turn-text">{turn.position}{turn.mark} </p>
+                    </div>
+                </div>
+            {/each}
+        {/if}
+    {/each}
+</div>
+
+<form on:submit|preventDefault={newTurn}>
+    <input placeholder="Mark" type="text" bind:value={mark} />
+    <input placeholder="Position" type="text" bind:value={position} />
+    <button type="submit">Turn</button>
+</form>
+
