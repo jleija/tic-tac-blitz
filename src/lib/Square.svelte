@@ -5,15 +5,25 @@
     export let mark;
     export let game;
 
-    function play() {
+    async function play() {
         if (mark == "") {
-            console.log(`played position ${position} for game ${game.id}`)
+            console.log(`played position ${position} for game ${game}`)
+            console.log(`player1: ${game.player1} user: ${$currentUser.id}`)
             console.log(game)
             if (game.player1 == $currentUser.id) {
-                mark = "X"
+                mark = "x"
             } else {
-                mark = "O"
+                mark = "o"
             }
+
+            const data = {
+                game: game.id,
+                player: $currentUser.id,
+                mark: mark,
+                position: position,
+            };
+            console.log("Creating new play", data)
+            await pb.collection('turns').create(data);
         } else {
             console.log("This position was already played")
         }
