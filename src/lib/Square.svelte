@@ -4,6 +4,7 @@
 	export let position;
     export let mark;
     export let game;
+    export let color;
 
     async function play() {
         if (mark == "") {
@@ -23,7 +24,8 @@
                 position: position,
             };
             console.log("Creating new play", data)
-            await pb.collection('turns').create(data);
+            // TODO: check this for errors
+            await pb.collection('turns').create(data)
         } else {
             console.log("This position was already played")
         }
@@ -31,7 +33,7 @@
 </script>
 
 <p>
-	<span style="background-color: grey" on:click={play}><h2>{mark}</h2></span>
+	<span style="background-color: grey; color: {color}" on:click|preventDefault={play}><h2>{mark}</h2></span>
 </p>
 
 <style>
@@ -43,7 +45,6 @@
 		height: 4.5em;
 		text-align: center;
 		border-radius: 0.2em;
-		color: white;
 	}
     h2 {
 		font-family: 'Monospace';

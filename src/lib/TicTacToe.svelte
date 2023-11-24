@@ -13,6 +13,12 @@
     let unsubscribeTurns: () => void;
     let unsubscribeGames: () => void;
 
+    function Game(record) {
+        this.record = record
+        this.gameMask = 0
+        this.winningMask = 0
+    }
+
     onMount(async () => {
         console.log("on mount");
         const resultList = await pb.collection('games').getList(1,50, {
@@ -37,12 +43,13 @@
                 //       - or make an map index to games
                 for (var i = 0; i < games.length; i++) {
                     if (games[i].id == record.game) {
-                        if (games[i].expand["turns(game)"]) {
-                            games[i].expand["turns(game)"] =
-                                [ ...games[i].expand["turns(game)"], record ] 
-                        } else {
-                            games[i].expand["turns(game)"] = [ record ]
-                        }
+                        games[i].expand["turns(game)"] = [ ...(turns(games[i]) || []),  record ]
+                        // if ("expand" in games[i] && "turns(game)" in games[i].expand) {
+                        //     games[i].expand["turns(game)"] =
+                        //         [ ...games[i].expand["turns(game)"], record ] 
+                        // } else {
+                        //     games[i].expand["turns(game)"] = [ record ]
+                        // }
                         console.log(`New board: ${games[i]}`);
                         break;
                     }
@@ -94,37 +101,65 @@
         const play = await pb.collection('turns').create(data);
     }
 
+    function turns(game) {
+        if ("expand" in game && "turns(game)" in game.expand) {
+            return game.expand["turns(game)"]
+        }
+        return null
+    }
+
+    function turnAtPosition(game, pos) {
+        var ts = turns(game)
+        if (ts) {
+            for (var i = 0; i < ts.length; i++) {
+                if (ts[i].position == pos) {
+                    return ts[i]
+                }
+            }
+        }
+        return null
+    }
+
+    function gameMaskFor(mark) {
+        var mask = 0
+        var ts = turns(game) || []
+        for (t in ts)
+            if (t.mark == mark)
+                mask |= 1 << (t.position - 1)
+        return mask
+    }
+
+    const winningMasks = [
+        0b111_000_000,
+        0b000_111_000,
+        0b000_000_111,
+        0b100_100_100,
+        0b010_010_010,
+        0b001_001_001,
+        0b100_010_001,
+        0b001_010_100
+    ]
+
+    function winningGame() {
+        for (mark in ["x", "o"]) {
+            var gameMask = gameMaskFor(mark)
+            for (winningMask in winningMasks) {
+                if (winningMask & gameMask == winningMask) {
+                    return [mark, winningMask]
+                }
+            }
+        }
+        return null
+    }
+
+    function markColors() {
+    }
+
 </script>
 
-<div class="games">
-    <h1>Open Games</h1>
-    {#each games as game}
-        <div class="game">
-            <div>
-                <p class="game-text">{game.expand.player1.name} </p>
-            </div>
-        </div>
-    {/each}
-</div>
-
 <form on:submit|preventDefault={newGame}>
-    <button type="submit">Play</button>
+    <button type="submit">New Game</button>
 </form>
-
-<div class="turns">
-    <h1>Turns</h1>
-    {#each games as game}
-        {#if game.expand["turns(game)"] }
-            {#each game.expand["turns(game)"] as turn}
-                <div class="turn">
-                    <div>
-                        <p class="turn-text">{game.id}: {turn.position}{turn.mark} </p>
-                    </div>
-                </div>
-            {/each}
-        {/if}
-    {/each}
-</div>
 
 <form on:submit|preventDefault={newTurn}>
     <input placeholder="Mark" type="text" bind:value={mark} />
@@ -132,20 +167,15 @@
     <button type="submit">Turn</button>
 </form>
 
-<h1>Photo album</h1>
-
 {#each games as game}
-    {@const turns = new Map(game.expand["turns(game)"]?.map(
-        (turn) => [turn.position, turn]
-    ))}
-    {console.log("Game Turns:", turns)}
-    <p>You are playing {#if game.player1 == $currentUser.id}x{:else}o{/if}</p>
+    {console.log("game:", game)}
+    <p>You are playing {#if game.player1 == $currentUser.id}x{:else}{#if game.player2 == $currentUser.id}o{:else}(not playing){/if}{/if}</p>
     <div class="tictactoe">
     {#each positions as position}
-        {#if turns.get(position) }
-            <Square position={position} mark={turns.get(position).mark} game={game}/>
+        {#if turnAtPosition(game, position) }
+            <Square position={position} mark={turnAtPosition(game, position).mark} game={game} color="white"/>
         {:else}
-            <Square position={position} mark="" game={game}/>
+            <Square position={position} mark="" game={game} color="white"/>
         {/if}
     {/each}
     </div>

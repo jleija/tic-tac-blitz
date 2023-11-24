@@ -9,3 +9,8 @@ Requirements:
 . Display the game result and persist in the database at the end of the game
 . Display a ranking of the top five players and allow players to start a new game
 
+
+
+ToDo:
+. Represent the whole game in two 9-bit masks. One for the marks and one for the played squares.
+. Probably should have written it in the backend, rather than in svelte
