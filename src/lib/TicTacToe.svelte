@@ -97,7 +97,6 @@
             return (this.winningMask(this.xMask) != 0) || (this.winningMask(this.oMask) != 0)
         }
 
-        
         this.play = async function(position) {
             if (this.isOver()) {
                 console.log("Game Over")
@@ -156,6 +155,9 @@
                 this.xMask |= positionMask(position)
             else
                 this.oMask |= positionMask(position)
+
+            if (this.isOver())
+                await pb.collection('games').update(this.record.id, { winner: $currentUser.id })
         }
     }
 
