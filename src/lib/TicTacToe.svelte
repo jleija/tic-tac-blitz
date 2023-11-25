@@ -62,13 +62,13 @@
             0b001_010_100
         ]
 
-        this.winningMask = function(mask) {
+        this.winningMask = function(gameMask) {
             for (let mask of winningMasks) {
-                if (mask & gameMask == mask) {
-                    return [mark, mask]
+                if ((mask & gameMask) == mask) {
+                    return mask
                 }
             }
-            return null
+            return 0
         }
 
         this.turnAtPosition = function(pos) {
@@ -84,49 +84,78 @@
             return null
         }
 
+        this.isStrikeThroughPosition = function(pos) {
+            // console.log("strike-through:", this.xMask.toString(2))
+            // console.log("position-mask:", pos, positionMask(pos).toString(2))
+            // console.log("winning-mask:", pos, this.winningMask(this.xMask).toString(2))
+            // console.log(this.winningMask(this.xMask)) 
+            return ((positionMask(pos) & this.winningMask(this.xMask)) != 0)
+                   || ((positionMask(pos) & this.winningMask(this.oMask)) != 0)
+        }
+
+        this.isOver = function() {
+            return (this.winningMask(this.xMask) != 0) || (this.winningMask(this.oMask) != 0)
+        }
+
         
         this.play = async function(position) {
-            console.log("maybe played?: ", this.positionPlayed(position))
+            if (this.isOver()) {
+                console.log("Game Over")
+                return
+            }
+
             if (this.positionPlayed(position)) {
                 console.log(`Position ${position} already played`)
-            } else {
-                console.log(`played position ${position} for game ${this}`)
-                console.log(`player1: ${this.record.player1} user: ${$currentUser.id}`)
-                console.log(this)
-
-
-                var mark = ""
-                if (this.record.player1 == $currentUser.id) {
-                    mark = "x"
-                    this.xMask |= positionMask(position)
-                } else {
-                    // second player joins in
-                    // if (this.turns().length == 1) {
-                    if (!this.record.player2) {
-                        console.log(`player2 joined in: [${this.record.player2}]`)
-                        await pb.collection('games').update(this.record.id, { player2: $currentUser.id })
-                        // this.record.player2 = $currentUser.id
-                    }
-                    console.log("checking player2")
-                    if (this.record.player2 == $currentUser.id) {
-                        mark = "o"
-                        this.oMask |= positionMask(position)
-                    } else {
-                        console.log("You are not playing in this game")
-                        return
-                    }
-                }
-
-                const data = {
-                    game: this.record.id,
-                    player: $currentUser.id,
-                    mark: mark,
-                    position: position,
-                };
-                console.log("Creating new play", data)
-                // TODO: check this for errors
-                await pb.collection('turns').create(data)
+                return
             }
+            
+            if ((this.record.player1 != $currentUser.id) && this.record.player2 && (this.record.player2 != $currentUser.id)) {
+                console.log("You are not playing this game")
+                return
+            }
+
+            console.log(`played position ${position} for game ${this}`)
+            console.log(`player1: ${this.record.player1} user: ${$currentUser.id}`)
+            console.log(this)
+
+
+            var mark = ""
+            if (this.record.player1 == $currentUser.id) {
+                mark = "x"
+                // this.xMask |= positionMask(position)
+            } else {
+                // second player joins in
+                // if (this.turns().length == 1) {
+                if (!this.record.player2) {
+                    console.log(`player2 joined in: [${this.record.player2}]`)
+                    await pb.collection('games').update(this.record.id, { player2: $currentUser.id })
+                    // this.record.player2 = $currentUser.id
+                }
+                mark = "o"
+                // this.oMask |= positionMask(position)
+            }
+
+            var ts = this.turns()
+            if ((ts.length > 0) && (ts[ts.length-1].mark == mark)) {
+                console.log("Not your turn")
+                return
+            }
+
+
+            const data = {
+                game: this.record.id,
+                player: $currentUser.id,
+                mark: mark,
+                position: position,
+            };
+            console.log("Creating new play", data)
+            // TODO: check this for errors
+            await pb.collection('turns').create(data)
+
+            if (mark == "x")
+                this.xMask |= positionMask(position)
+            else
+                this.oMask |= positionMask(position)
         }
     }
 
@@ -182,7 +211,6 @@
             if (action === 'create') {
                 console.log(`new game: ${record.id}`)
                 console.log(`player1: ${record.player1}`)
-                // TODO: CONTINUE HERE: make sure the record comes in with the expanded fields, and if not, make a read here to force it to load a complete object
                 const game = await pb.collection('games').getOne(record.id, {
                     expand: 'turns(game),player1,player2'
                 })
@@ -237,12 +265,11 @@
 </form>
 
 {#each games as game}
-    {console.log("game:", game)}
-    <p>You are playing {#if game.record.player1 == $currentUser.id}x{:else}{#if game.record.player2 == $currentUser.id}o{:else}(not playing){/if}{/if}</p>
+    <p>x player: {game.record.expand.player1.name} vs o player: {game.record.expand.player2 ? game.record.expand.player2.name : `____[${game.record.expand.player2}]______`} </p>
     <div class="tictactoe">
     {#each positions as position}
         {#if game.turnAtPosition(position) }
-            <Square position={position} mark={game.turnAtPosition(position).mark} game={game} color="white"/>
+            <Square position={position} mark={game.turnAtPosition(position).mark} game={game} color={game.isStrikeThroughPosition(position) ? "red" : "white"}/>
         {:else}
             <Square position={position} mark="" game={game} color="white"/>
         {/if}

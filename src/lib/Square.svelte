@@ -7,34 +7,7 @@
     export let color;
 
     async function play() {
-        // if (mark == "") {
-            // if (game.record.player1 == $currentUser.id) {
-            //     mark = "x"
-            // } else {
-            //     mark = "o"
-            // }
-            await game.play(position)
-            // console.log(`played position ${position} for game ${game}`)
-            // console.log(`player1: ${game.player1} user: ${$currentUser.id}`)
-            // console.log(game)
-            // if (game.record.player1 == $currentUser.id) {
-            //     mark = "x"
-            // } else {
-            //     mark = "o"
-            // }
-
-            // const data = {
-            //     game: game.record.id,
-            //     player: $currentUser.id,
-            //     mark: mark,
-            //     position: position,
-            // };
-            // console.log("Creating new play", data)
-            // // TODO: check this for errors
-            // await pb.collection('turns').create(data)
-        // } else {
-        //     console.log("This position was already played")
-        // }
+        await game.play(position)
     }
 </script>
 
