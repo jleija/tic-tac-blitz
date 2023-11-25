@@ -5,27 +5,139 @@
 
     console.log("script");
 
-    let mark: string;
-    let position: number;
+    // let mark: string;
+    // let position: number;
     let games = [];
     let positions = [1,2,3,4,5,6,7,8,9];
 
     let unsubscribeTurns: () => void;
     let unsubscribeGames: () => void;
 
+    function positionMask(position) {
+        return 1 << (position - 1)
+    }
+
     function Game(record) {
         this.record = record
-        this.gameMask = 0
-        this.winningMask = 0
+        // this.xMask = 0
+        // this.oMask = 0
+        // this.winningMask = 0
+
+        this.positionPlayed = function(position) {
+            console.log("xMask:", this.xMask.toString(2))
+            console.log("oMask:", this.oMask.toString(2))
+            console.log("posMask:", position, positionMask(position).toString(2))
+            console.log("played:", (this.xMask | this.oMask) & positionMask(position).toString(2))
+            return ((this.xMask | this.oMask) & positionMask(position)) != 0
+        }
+
+        this.turns = function() {
+            if ("expand" in this.record && "turns(game)" in this.record.expand) {
+                return this.record.expand["turns(game)"]
+            }
+            return []
+        }
+
+        this.gameMaskFor = function(mark) {
+            var mask = 0
+            var ts = this.turns()
+            // console.log("ts:", ts)
+            for (let t of ts)
+                if (t.mark == mark)
+                    mask |= positionMask(t.position)
+            return mask
+        }
+
+        this.xMask = this.gameMaskFor("x")
+        this.oMask = this.gameMaskFor("o")
+
+        const winningMasks = [
+            0b111_000_000,
+            0b000_111_000,
+            0b000_000_111,
+            0b100_100_100,
+            0b010_010_010,
+            0b001_001_001,
+            0b100_010_001,
+            0b001_010_100
+        ]
+
+        this.winningMask = function(mask) {
+            for (let mask of winningMasks) {
+                if (mask & gameMask == mask) {
+                    return [mark, mask]
+                }
+            }
+            return null
+        }
+
+        this.turnAtPosition = function(pos) {
+            var ts = this.turns()
+            // console.log(`turnAtPosition pos: ${pos}`)
+            // console.log("ts:", ts)
+            for (let t of ts) {
+                // console.log("t:", t)
+                if (t.position == pos) {
+                    return t
+                }
+            }
+            return null
+        }
+
+        
+        this.play = async function(position) {
+            console.log("maybe played?: ", this.positionPlayed(position))
+            if (this.positionPlayed(position)) {
+                console.log(`Position ${position} already played`)
+            } else {
+                console.log(`played position ${position} for game ${this}`)
+                console.log(`player1: ${this.record.player1} user: ${$currentUser.id}`)
+                console.log(this)
+
+
+                var mark = ""
+                if (this.record.player1 == $currentUser.id) {
+                    mark = "x"
+                    this.xMask |= positionMask(position)
+                } else {
+                    // second player joins in
+                    // if (this.turns().length == 1) {
+                    if (!this.record.player2) {
+                        console.log(`player2 joined in: [${this.record.player2}]`)
+                        await pb.collection('games').update(this.record.id, { player2: $currentUser.id })
+                        // this.record.player2 = $currentUser.id
+                    }
+                    console.log("checking player2")
+                    if (this.record.player2 == $currentUser.id) {
+                        mark = "o"
+                        this.oMask |= positionMask(position)
+                    } else {
+                        console.log("You are not playing in this game")
+                        return
+                    }
+                }
+
+                const data = {
+                    game: this.record.id,
+                    player: $currentUser.id,
+                    mark: mark,
+                    position: position,
+                };
+                console.log("Creating new play", data)
+                // TODO: check this for errors
+                await pb.collection('turns').create(data)
+            }
+        }
     }
 
     onMount(async () => {
         console.log("on mount");
         const resultList = await pb.collection('games').getList(1,50, {
             sort: 'created',
-            expand: 'player1,player2,turns(game)',
+            // expand: 'turns(game),player1,player2',
+            expand: 'turns(game),player1,player2',
         });
-        games = resultList.items;
+        games = resultList.items.map(g => new Game(g));
         console.log("mounted games");
         console.log(games);
 
@@ -33,6 +145,7 @@
           .collection('turns')
           .subscribe('*', async ({ action, record }) => {
             console.log(`got event '${action}' for record ${record}`);
+            console.log("record:", record)
             if (action === 'create') {
                 console.log(`game: ${record.game}`)
                 console.log(`player: ${record.player}`)
@@ -41,9 +154,10 @@
 
                 // TODO: turn games into a map maybe 
                 //       - or make an map index to games
-                for (var i = 0; i < games.length; i++) {
-                    if (games[i].id == record.game) {
-                        games[i].expand["turns(game)"] = [ ...(turns(games[i]) || []),  record ]
+                for (let i = 0; i < games.length; i++) {
+                    if (games[i].record.id == record.game) {
+                        console.log("existing game:", games[i])
+                        games[i].record.expand["turns(game)"] = [ ...(games[i].turns() || []),  record ]
                         // if ("expand" in games[i] && "turns(game)" in games[i].expand) {
                         //     games[i].expand["turns(game)"] =
                         //         [ ...games[i].expand["turns(game)"], record ] 
@@ -68,92 +182,53 @@
             if (action === 'create') {
                 console.log(`new game: ${record.id}`)
                 console.log(`player1: ${record.player1}`)
-                games = [ ...games, record ]
+                // TODO: CONTINUE HERE: make sure the record comes in with the expanded fields, and if not, make a read here to force it to load a complete object
+                const game = await pb.collection('games').getOne(record.id, {
+                    expand: 'turns(game),player1,player2'
+                })
+                // games = [ ...games, new Game(record) ]
+                console.log("recovered game", game)
+                games = [ ...games, new Game(game) ]
+            }
+            if (action === 'delete') {
+                console.log(`del game: ${record.id}`)
+                console.log(`player1: ${record.player1}`)
+                games = games.filter((g) => g.record.id != record.id)
+            }
+            if (action === 'update') {
+                console.log(`update game: ${record.id}`)
+                console.log(`player1: ${record.player1}`)
+                console.log(`player2: ${record.player2}`)
+                var game = games.find((g) => g.record.id == record.id)
+                game.record.player1 = record.player1
+                game.record.player2 = record.player2
             }
           });
     });
 
     // Unsubscribe from realtime game turns
     onDestroy(() => {
-        unsubscribeTurns?.();
-        unsubscribeGames?.();
+        unsubscribeTurns?.()
+        unsubscribeGames?.()
     });
 
     async function newGame() {
-        console.log("new game");
+        console.log("new game")
         const data = {
             player1: $currentUser.id,
-        };
-        const game = await pb.collection('games').create(data);
+        }
+        const game = await pb.collection('games').create(data)
+    }
+
+    async function del(game) {
+        console.log("del game", game)
+        await pb.collection('games').delete(game.record.id)
     }
 
     function testButton() {
         console.log("test button pressed");
     }
 
-    async function newTurn() {
-        const data = {
-            game: games[0].id,
-            player: $currentUser.id,
-            mark: mark,
-            position: position,
-        };
-        const play = await pb.collection('turns').create(data);
-    }
-
-    function turns(game) {
-        if ("expand" in game && "turns(game)" in game.expand) {
-            return game.expand["turns(game)"]
-        }
-        return null
-    }
-
-    function turnAtPosition(game, pos) {
-        var ts = turns(game)
-        if (ts) {
-            for (var i = 0; i < ts.length; i++) {
-                if (ts[i].position == pos) {
-                    return ts[i]
-                }
-            }
-        }
-        return null
-    }
-
-    function gameMaskFor(mark) {
-        var mask = 0
-        var ts = turns(game) || []
-        for (t in ts)
-            if (t.mark == mark)
-                mask |= 1 << (t.position - 1)
-        return mask
-    }
-
-    const winningMasks = [
-        0b111_000_000,
-        0b000_111_000,
-        0b000_000_111,
-        0b100_100_100,
-        0b010_010_010,
-        0b001_001_001,
-        0b100_010_001,
-        0b001_010_100
-    ]
-
-    function winningGame() {
-        for (mark in ["x", "o"]) {
-            var gameMask = gameMaskFor(mark)
-            for (winningMask in winningMasks) {
-                if (winningMask & gameMask == winningMask) {
-                    return [mark, winningMask]
-                }
-            }
-        }
-        return null
-    }
-
-    function markColors() {
-    }
 
 </script>
 
@@ -161,24 +236,20 @@
     <button type="submit">New Game</button>
 </form>
 
-<form on:submit|preventDefault={newTurn}>
-    <input placeholder="Mark" type="text" bind:value={mark} />
-    <input placeholder="Position" type="text" bind:value={position} />
-    <button type="submit">Turn</button>
-</form>
-
 {#each games as game}
     {console.log("game:", game)}
-    <p>You are playing {#if game.player1 == $currentUser.id}x{:else}{#if game.player2 == $currentUser.id}o{:else}(not playing){/if}{/if}</p>
+    <p>You are playing {#if game.record.player1 == $currentUser.id}x{:else}{#if game.record.player2 == $currentUser.id}o{:else}(not playing){/if}{/if}</p>
     <div class="tictactoe">
     {#each positions as position}
-        {#if turnAtPosition(game, position) }
-            <Square position={position} mark={turnAtPosition(game, position).mark} game={game} color="white"/>
+        {#if game.turnAtPosition(position) }
+            <Square position={position} mark={game.turnAtPosition(position).mark} game={game} color="white"/>
         {:else}
             <Square position={position} mark="" game={game} color="white"/>
         {/if}
     {/each}
     </div>
+
+    <button on:click={() => del(game)}>Delete</button>
 {/each}
 
 <style>
