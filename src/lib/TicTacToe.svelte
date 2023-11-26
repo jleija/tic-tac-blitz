@@ -2,6 +2,7 @@
     import { onMount, onDestroy } from 'svelte';
     import { currentUser, pb } from './pocketbase';
     import Square from "./Square.svelte";
+    import TopPlayers from "./TopPlayers.svelte";
 
     console.log("script");
 
@@ -164,6 +165,7 @@
             else
                 this.oMask |= positionMask(position)
 
+            // TODO: bug. When the game is won, the strike-through line is not updating automatically
             if (this.isOver())
                 await pb.collection('games').update(this.record.id, { winner: $currentUser.id })
         }
@@ -263,11 +265,6 @@
         await pb.collection('games').delete(game.record.id)
     }
 
-    function testButton() {
-        console.log("test button pressed");
-    }
-
-
 </script>
 
 <div class="vsplit">
@@ -275,7 +272,8 @@
         <h2>Tic Tac Blitz</h2>
         <p>Signed in as {$currentUser.username}</p>
         <button on:click={newGame}>New Game</button>
-        <p>Top Ranking Here</p>
+        <h3>Top Players</h3>
+        <TopPlayers/>
     </div>
     <div class="blitz">
         {#each games as game}
