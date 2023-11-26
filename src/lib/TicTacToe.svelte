@@ -105,9 +105,16 @@
             return (ts.length == 0) || (ts[ts.length-1].player != $currentUser.id)
         }
 
+        this.markPosition = function(mark, position) {
+            if (mark == "x")
+                this.xMask |= positionMask(position)
+            else
+                this.oMask |= positionMask(position)
+        }
+
         this.play = async function(position) {
             if (this.isOver()) {
-                console.log("Game Over")
+                console.log("Game is over")
                 return
             }
 
@@ -157,13 +164,14 @@
                 position: position,
             };
             console.log("Creating new play", data)
+            this.markPosition(mark, position)
+            // if (mark == "x")
+            //     this.xMask |= positionMask(position)
+            // else
+            //     this.oMask |= positionMask(position)
+
             // TODO: check this for errors
             await pb.collection('turns').create(data)
-
-            if (mark == "x")
-                this.xMask |= positionMask(position)
-            else
-                this.oMask |= positionMask(position)
 
             // TODO: bug. When the game is won, the strike-through line is not updating automatically
             if (this.isOver())
@@ -199,20 +207,12 @@
                     if (games[i].record.id == record.game) {
                         console.log("existing game:", games[i])
                         games[i].record.expand["turns(game)"] = [ ...(games[i].turns() || []),  record ]
-                        // if ("expand" in games[i] && "turns(game)" in games[i].expand) {
-                        //     games[i].expand["turns(game)"] =
-                        //         [ ...games[i].expand["turns(game)"], record ] 
-                        // } else {
-                        //     games[i].expand["turns(game)"] = [ record ]
-                        // }
+                        games[i].markPosition(record.mark, record.position)
+
                         console.log(`New board: ${games[i]}`);
                         break;
                     }
                 }
-              // Fetch associated user
-              // const user = await pb.collection('users').getOne(record.user);
-              // record.expand = { user };
-              // messages = [...messages, record];
             }
           });
 
