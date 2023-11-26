@@ -29,9 +29,7 @@
 
 </script>
 
-{#if $currentUser}
-    <p>Signed in as {$currentUser.username}</p>
-{:else}
+{#if !$currentUser}
     <form on:submit|preventDefault>
         <input
             placeholder="Username"

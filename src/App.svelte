@@ -4,8 +4,6 @@
     import { currentUser } from "./lib/pocketbase";
 </script>
 
-<h1>Tic Tac Toe</h1>
-
 <Login />
 
 {#if $currentUser}

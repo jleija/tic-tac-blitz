@@ -97,6 +97,13 @@
             return (this.winningMask(this.xMask) != 0) || (this.winningMask(this.oMask) != 0)
         }
 
+        this.isMyTurn = function() {
+            if (this.isOver())
+                return false
+            var ts = this.turns()
+            return (ts.length == 0) || (ts[ts.length-1].player != $currentUser.id)
+        }
+
         this.play = async function(position) {
             if (this.isOver()) {
                 console.log("Game Over")
@@ -134,9 +141,10 @@
                 // this.oMask |= positionMask(position)
             }
 
-            var ts = this.turns()
-            if ((ts.length > 0) && (ts[ts.length-1].mark == mark)) {
-                console.log("Not your turn")
+            // var ts = this.turns()
+            // if ((ts.length > 0) && (ts[ts.length-1].mark == mark)) {
+            if (!this.isMyTurn()) {
+                console.log("Not my turn")
                 return
             }
 
@@ -164,7 +172,7 @@
     onMount(async () => {
         console.log("on mount");
         const resultList = await pb.collection('games').getList(1,50, {
-            sort: 'created',
+            sort: '-created',
             // expand: 'turns(game),player1,player2',
             expand: 'turns(game),player1,player2',
         });
@@ -218,7 +226,7 @@
                 })
                 // games = [ ...games, new Game(record) ]
                 console.log("recovered game", game)
-                games = [ ...games, new Game(game) ]
+                games = [ new Game(game), ...games ]
             }
             if (action === 'delete') {
                 console.log(`del game: ${record.id}`)
@@ -262,32 +270,58 @@
 
 </script>
 
-<form on:submit|preventDefault={newGame}>
-    <button type="submit">New Game</button>
-</form>
-
-{#each games as game}
-    <p>x player: {game.record.expand.player1.name} vs o player: {game.record.expand.player2 ? game.record.expand.player2.name : `____[${game.record.expand.player2}]______`} </p>
-    <div class="tictactoe">
-    {#each positions as position}
-        {#if game.turnAtPosition(position) }
-            <Square position={position} mark={game.turnAtPosition(position).mark} game={game} color={game.isStrikeThroughPosition(position) ? "red" : "white"}/>
-        {:else}
-            <Square position={position} mark="" game={game} color="white"/>
-        {/if}
-    {/each}
+<div class="vsplit">
+    <div class="side-panel">
+        <h2>Tic Tac Blitz</h2>
+        <p>Signed in as {$currentUser.username}</p>
+        <button on:click={newGame}>New Game</button>
+        <p>Top Ranking Here</p>
     </div>
+    <div class="blitz">
+        {#each games as game}
+            <div>
+            <p>{game.record.player1 == $currentUser.id ? "me" : game.record.expand.player1.name} vs 
+               {game.record.player2 == $currentUser.id ? "me" : (game.record.expand.player2 ? game.record.expand.player2.name : "(open)")} </p>
+            <p>playing {$currentUser.id == game.record.player1 ? "x" : "o"}</p>
+            <div class="frame" style="background-color: {game.isMyTurn() ? 'orange' : 'black'}">
+                <div class="tictactoe">
+                {#each positions as position}
+                    {#if game.turnAtPosition(position) }
+                        <Square position={position} mark={game.turnAtPosition(position).mark} game={game} color={game.isStrikeThroughPosition(position) ? "red" : "white"} />
+                    {:else}
+                        <Square position={position} mark="" game={game} color="white"/>
+                    {/if}
+                {/each}
+                </div>
+            </div>
 
-    <button on:click={() => del(game)}>Delete</button>
-{/each}
+            <button on:click={() => del(game)}>Delete</button>
+            </div>
+        {/each}
+    </div>
+</div>
 
 <style>
 	.tictactoe {
-		width: 22em;
+		width: 7em;
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
 		grid-gap: 2px;
         background-color: black;
 	}
+    .frame {
+        width: 7em;
+		padding: 0.4em 0.4em 0.4em 0.4em;
+    }
+    .blitz {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+        grid-gap: 1em;
+    }
+    .vsplit {
+		display: grid;
+		grid-template-columns: repeat(2, 0.7fr);
+        grid-gap: 2em;
+    }
 </style>
 
