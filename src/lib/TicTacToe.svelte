@@ -2,7 +2,7 @@
     import { onMount, onDestroy } from 'svelte';
     import { currentUser, pb } from './pocketbase';
     import Square from "./Square.svelte";
-    import TopPlayers from "./TopPlayers.svelte";
+    import Score from "./Score.svelte";
 
     console.log("script");
 
@@ -10,6 +10,7 @@
     // let position: number;
     let games = [];
     let positions = [1,2,3,4,5,6,7,8,9];
+    let topPlayers = [];
 
     let unsubscribeTurns: () => void;
     let unsubscribeGames: () => void;
@@ -175,7 +176,10 @@
 
             // TODO: bug. When the game is won, the strike-through line is not updating automatically
             if (this.isOver())
+            {
                 await pb.collection('games').update(this.record.id, { winner: $currentUser.id })
+                updateScore()
+            }
         }
     }
 
@@ -186,9 +190,10 @@
             // expand: 'turns(game),player1,player2',
             expand: 'turns(game),player1,player2',
         });
-        games = resultList.items.map(g => new Game(g));
-        console.log("mounted games");
-        console.log(games);
+        games = resultList.items.map(g => new Game(g))
+        console.log("mounted games")
+        console.log(games)
+        updateScore() 
 
         unsubscribeTurns = await pb
           .collection('turns')
@@ -234,6 +239,7 @@
                 console.log(`del game: ${record.id}`)
                 console.log(`player1: ${record.player1}`)
                 games = games.filter((g) => g.record.id != record.id)
+                updateScore()
             }
             if (action === 'update') {
                 console.log(`update game: ${record.id}`)
@@ -242,6 +248,7 @@
                 var game = games.find((g) => g.record.id == record.id)
                 game.record.player1 = record.player1
                 game.record.player2 = record.player2
+                updateScore()
             }
           });
     });
@@ -260,9 +267,21 @@
         const game = await pb.collection('games').create(data)
     }
 
-    async function del(game) {
+    async function delGame(game) {
         console.log("del game", game)
         await pb.collection('games').delete(game.record.id)
+    }
+
+    async function updateScore() {
+        const results = await pb.collection('top_players').getList(1,20, {})
+        console.log("Update best players:", results.items)
+        return topPlayers = results.items
+    }
+
+    async function bestPlayers() {
+        const results = await pb.collection('top_players').getList(1,20, {})
+        console.log("Got best players:", results.items)
+        return results.items
     }
 
 </script>
@@ -271,9 +290,13 @@
     <div class="side-panel">
         <h2>Tic Tac Blitz</h2>
         <p>Signed in as {$currentUser.username}</p>
-        <button on:click={newGame}>New Game</button>
+        <button on:click={newGame} style="background-color:deepskyblue">New Game</button>
         <h3>Top Players</h3>
-        <TopPlayers/>
+        <span style="font-weight:bold; text-decoration: underline">Name</span>
+        <span style="font-weight:bold; text-decoration: underline">Wins</span>
+        {#each topPlayers as player}
+            <Score name={player.name} score={player.wins}/>
+        {/each}
     </div>
     <div class="blitz">
         {#each games as game}
@@ -293,7 +316,7 @@
                 </div>
             </div>
 
-            <button on:click={() => del(game)}>Delete</button>
+            <button on:click={() => delGame(game)}>Delete</button>
             </div>
         {/each}
     </div>
