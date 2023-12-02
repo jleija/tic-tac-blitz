@@ -6,8 +6,6 @@
 
     console.log("script");
 
-    // let mark: string;
-    // let position: number;
     let games = [];
     let positions = [1,2,3,4,5,6,7,8,9];
     let topPlayers = [];
@@ -21,9 +19,6 @@
 
     function Game(record) {
         this.record = record
-        // this.xMask = 0
-        // this.oMask = 0
-        // this.winningMask = 0
 
         this.positionPlayed = function(position) {
             console.log("xMask:", this.xMask.toString(2))
@@ -43,7 +38,6 @@
         this.gameMaskFor = function(mark) {
             var mask = 0
             var ts = this.turns()
-            // console.log("ts:", ts)
             for (let t of ts)
                 if (t.mark == mark)
                     mask |= positionMask(t.position)
@@ -75,10 +69,7 @@
 
         this.turnAtPosition = function(pos) {
             var ts = this.turns()
-            // console.log(`turnAtPosition pos: ${pos}`)
-            // console.log("ts:", ts)
             for (let t of ts) {
-                // console.log("t:", t)
                 if (t.position == pos) {
                     return t
                 }
@@ -87,10 +78,6 @@
         }
 
         this.isStrikeThroughPosition = function(pos) {
-            // console.log("strike-through:", this.xMask.toString(2))
-            // console.log("position-mask:", pos, positionMask(pos).toString(2))
-            // console.log("winning-mask:", pos, this.winningMask(this.xMask).toString(2))
-            // console.log(this.winningMask(this.xMask)) 
             return ((positionMask(pos) & this.winningMask(this.xMask)) != 0)
                    || ((positionMask(pos) & this.winningMask(this.oMask)) != 0)
         }
@@ -137,21 +124,14 @@
             var mark = ""
             if (this.record.player1 == $currentUser.id) {
                 mark = "x"
-                // this.xMask |= positionMask(position)
             } else {
-                // second player joins in
-                // if (this.turns().length == 1) {
                 if (!this.record.player2) {
                     console.log(`player2 joined in: [${this.record.player2}]`)
                     await pb.collection('games').update(this.record.id, { player2: $currentUser.id })
-                    // this.record.player2 = $currentUser.id
                 }
                 mark = "o"
-                // this.oMask |= positionMask(position)
             }
 
-            // var ts = this.turns()
-            // if ((ts.length > 0) && (ts[ts.length-1].mark == mark)) {
             if (!this.isMyTurn()) {
                 console.log("Not my turn")
                 return
@@ -166,15 +146,10 @@
             };
             console.log("Creating new play", data)
             this.markPosition(mark, position)
-            // if (mark == "x")
-            //     this.xMask |= positionMask(position)
-            // else
-            //     this.oMask |= positionMask(position)
 
             // TODO: check this for errors
             await pb.collection('turns').create(data)
 
-            // TODO: bug. When the game is won, the strike-through line is not updating automatically
             if (this.isOver())
             {
                 await pb.collection('games').update(this.record.id, { winner: $currentUser.id })
@@ -187,7 +162,6 @@
         console.log("on mount");
         const resultList = await pb.collection('games').getList(1,50, {
             sort: '-created',
-            // expand: 'turns(game),player1,player2',
             expand: 'turns(game),player1,player2',
         });
         games = resultList.items.map(g => new Game(g))
@@ -231,7 +205,6 @@
                 const game = await pb.collection('games').getOne(record.id, {
                     expand: 'turns(game),player1,player2'
                 })
-                // games = [ ...games, new Game(record) ]
                 console.log("recovered game", game)
                 games = [ new Game(game), ...games ]
             }
@@ -292,11 +265,13 @@
         <p>Signed in as {$currentUser.username}</p>
         <button on:click={newGame} style="background-color:deepskyblue">New Game</button>
         <h3>Top Players</h3>
-        <span style="font-weight:bold; text-decoration: underline">Name</span>
-        <span style="font-weight:bold; text-decoration: underline">Wins</span>
-        {#each topPlayers as player}
-            <Score name={player.name} score={player.wins}/>
-        {/each}
+        <div class="score">
+            <span style="font-weight:bold; text-decoration: underline">Name</span>
+            <span style="font-weight:bold; text-decoration: underline">Wins</span>
+            {#each topPlayers as player}
+                <Score name={player.name} score={player.wins}/>
+            {/each}
+        </div>
     </div>
     <div class="blitz">
         {#each games as game}
@@ -344,5 +319,10 @@
 		grid-template-columns: repeat(2, 0.7fr);
         grid-gap: 2em;
     }
+	.score {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		grid-gap: 2px;
+	}
 </style>
 
