@@ -3,12 +3,16 @@
     import { currentUser, pb } from './pocketbase';
     import Square from "./Square.svelte";
     import Score from "./Score.svelte";
+    import Tooltip from './Tooltip.svelte';
 
     console.log("script");
 
     let games = [];
     let positions = [1,2,3,4,5,6,7,8,9];
     let topPlayers = [];
+    let tip = ""
+    let tipTime = 0
+    let frame
 
     let unsubscribeTurns: () => void;
     let unsubscribeGames: () => void;
@@ -99,20 +103,27 @@
             else
                 this.oMask |= positionMask(position)
         }
+        this.showTip = function(message) {
+            tip = message
+            tipTime = window.performance.now()
+        }
 
         this.play = async function(position) {
             if (this.isOver()) {
                 console.log("Game is over")
+                this.showTip("Game Over")
                 return
             }
 
             if (this.positionPlayed(position)) {
                 console.log(`Position ${position} already played`)
+                this.showTip("Position already played")
                 return
             }
             
             if ((this.record.player1 != $currentUser.id) && this.record.player2 && (this.record.player2 != $currentUser.id)) {
                 console.log("You are not playing this game")
+                this.showTip("Not your game")
                 return
             }
 
@@ -230,6 +241,7 @@
     onDestroy(() => {
         unsubscribeTurns?.()
         unsubscribeGames?.()
+		cancelAnimationFrame(frame);
     });
 
     async function newGame() {
@@ -257,6 +269,15 @@
         return results.items
     }
 
+	(function update() {
+        frame = requestAnimationFrame(update);
+
+		const time = window.performance.now();
+        if (time - tipTime > 1000) {
+            tip = ""
+        }
+	})();
+
 </script>
 
 <div class="vsplit">
@@ -279,18 +300,19 @@
             <p>{game.record.player1 == $currentUser.id ? "me" : game.record.expand.player1.name} vs 
                {game.record.player2 == $currentUser.id ? "me" : (game.record.expand.player2 ? game.record.expand.player2.name : "(open)")} </p>
             <p>playing {$currentUser.id == game.record.player1 ? "x" : "o"}</p>
-            <div class="frame" style="background-color: {game.isMyTurn() ? 'orange' : 'black'}">
-                <div class="tictactoe">
-                {#each positions as position}
-                    {#if game.turnAtPosition(position) }
-                        <Square position={position} mark={game.turnAtPosition(position).mark} game={game} color={game.isStrikeThroughPosition(position) ? "red" : "white"} />
-                    {:else}
-                        <Square position={position} mark="" game={game} color="white"/>
-                    {/if}
-                {/each}
+            <Tooltip title={tip != "" ? tip : (game.isOver() ? 'Game Over' : (game.isMyTurn() ? 'Play!' : 'Wait'))}>
+                <div class="frame" style="background-color: {game.isMyTurn() ? 'orange' : 'black'}">
+                    <div class="tictactoe">
+                    {#each positions as position}
+                        {#if game.turnAtPosition(position) }
+                            <Square position={position} mark={game.turnAtPosition(position).mark} game={game} color={game.isStrikeThroughPosition(position) ? "red" : "white"} />
+                        {:else}
+                            <Square position={position} mark="" game={game} color="white"/>
+                        {/if}
+                    {/each}
+                    </div>
                 </div>
-            </div>
-
+            </Tooltip>
             <button on:click={() => delGame(game)}>Delete</button>
             </div>
         {/each}
