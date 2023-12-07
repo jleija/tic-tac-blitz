@@ -3,6 +3,7 @@
     import { currentUser, pb } from './pocketbase';
     import Square from "./Square.svelte";
     import Score from "./Score.svelte";
+    import Header from "./Header.svelte";
     import Tooltip from './Tooltip.svelte';
 
     console.log("script");
@@ -13,6 +14,7 @@
     let tip = ""
     let tipTime = 0
     let frame
+    const maxGames = 3 * 9
 
     let unsubscribeTurns: () => void;
     let unsubscribeGames: () => void;
@@ -218,6 +220,9 @@
                 })
                 console.log("recovered game", game)
                 games = [ new Game(game), ...games ]
+                if (games.length > maxGames) {
+                    delGame(games[games.length - 1])
+                }
             }
             if (action === 'delete') {
                 console.log(`del game: ${record.id}`)
@@ -227,11 +232,27 @@
             }
             if (action === 'update') {
                 console.log(`update game: ${record.id}`)
+                const gameRecord = await pb.collection('games').getOne(record.id, {
+                    expand: 'player1,player2'
+                })
+                console.log(`player1 from game`)
+                console.log(gameRecord)
+                console.log(`player1 from game: ${gameRecord.expand.player1.name}`)
+                console.log(`player2 from game: ${gameRecord.expand.player2.name}`)
                 console.log(`player1: ${record.player1}`)
                 console.log(`player2: ${record.player2}`)
                 var game = games.find((g) => g.record.id == record.id)
-                game.record.player1 = record.player1
-                game.record.player2 = record.player2
+                var gameIndex = games.findIndex((g) => g.record.id == record.id)
+                var newGames = []
+                for (let i=0; i < games.length; i++) {
+                    newGames.push(games[i])
+                }
+                newGames[gameIndex] = new Game(gameRecord)
+                games = newGames
+                // game.record.player1 = gameRecord.expand.player1
+                // game.record.player2 = gameRecord.expand.player2
+                // game.player2 = playerName(record.player2)
+                // console.log(`p2: ${game.player2}`)
                 updateScore()
             }
           });
@@ -244,12 +265,13 @@
 		cancelAnimationFrame(frame);
     });
 
-    async function newGame() {
+    function newGame() {
         console.log("new game")
         const data = {
             player1: $currentUser.id,
         }
-        const game = await pb.collection('games').create(data)
+        // const game = await pb.collection('games').create(data)
+        pb.collection('games').create(data)
     }
 
     async function delGame(game) {
@@ -263,10 +285,17 @@
         return topPlayers = results.items
     }
 
-    async function bestPlayers() {
-        const results = await pb.collection('top_players').getList(1,20, {})
-        console.log("Got best players:", results.items)
-        return results.items
+    // async function bestPlayers() {
+    //     const results = await pb.collection('top_players').getList(1,20, {})
+    //     console.log("Got best players:", results.items)
+    //     return results.items
+    // }
+
+    async function playerName(id) {
+        const user = await pb.collection('users').getOne(id, {})
+        // console.log("user:", user)
+        console.log("1. user name:", user.name)
+        return user.name
     }
 
 	(function update() {
@@ -282,7 +311,7 @@
 
 <div class="vsplit">
     <div class="side-panel">
-        <h2>Tic Tac Blitz</h2>
+        <h2>Tic-Tac-Blitz</h2>
         <p>Signed in as {$currentUser.username}</p>
         <button on:click={newGame} style="background-color:deepskyblue">New Game</button>
         <h3>Top Players</h3>
@@ -297,10 +326,8 @@
     <div class="blitz">
         {#each games as game}
             <div>
-            <p>{game.record.player1 == $currentUser.id ? "me" : game.record.expand.player1.name} vs 
-               {game.record.player2 == $currentUser.id ? "me" : (game.record.expand.player2 ? game.record.expand.player2.name : "(open)")} </p>
-            <p>playing {$currentUser.id == game.record.player1 ? "x" : "o"}</p>
-            <Tooltip title={tip != "" ? tip : (game.isOver() ? 'Game Over' : (game.isMyTurn() ? 'Play!' : 'Wait'))}>
+            <Header player1={game.record.player1} player2={game.record.player2} game={game}/>
+            <Tooltip title={tip != "" ? tip : (game.isOver() ? 'Game Over' : (game.isMyTurn() ? 'Playing ' + ($currentUser.id == game.record.player1 ? "X" : "O") : 'Wait'))}>
                 <div class="frame" style="background-color: {game.isMyTurn() ? 'orange' : 'black'}">
                     <div class="tictactoe">
                     {#each positions as position}

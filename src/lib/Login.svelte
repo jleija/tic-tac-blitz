@@ -3,9 +3,15 @@
 
     let username: string;
     let password: string;
+    let error: string = "";
 
     async function login() {
-        await pb.collection('users').authWithPassword(username, password)
+        try {
+            await pb.collection('users').authWithPassword(username, password)
+        } catch (err) {
+            console.log(err)
+            error = err
+        }
     }
 
     async function signUp() {
@@ -19,7 +25,8 @@
             const createdUser = await pb.collection('users').create(data);
             await login();
         } catch (err) {
-            console.error(err)
+            console.log(err)
+            error = err
         }
     }
 
@@ -30,6 +37,7 @@
 </script>
 
 {#if !$currentUser}
+    <h2>Tic_tac_blitz</h2>
     <form on:submit|preventDefault>
         <input
             placeholder="Username"
@@ -43,5 +51,6 @@
         />
         <button on:click={signUp}>Sign Up</button>
         <button on:click={login}>Login</button>
+        <p>{error}</p>
     </form>
 {/if}
