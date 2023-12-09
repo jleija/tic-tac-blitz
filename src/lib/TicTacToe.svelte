@@ -3,7 +3,6 @@
     import { currentUser, pb } from './pocketbase'
     import Square from "./Square.svelte"
     import Score from "./Score.svelte"
-    // import Header from "./Header.svelte"
     import Tooltip from './Tooltip.svelte'
 
     console.log("script")
@@ -19,6 +18,7 @@
 
     let unsubscribeTurns: () => void;
     let unsubscribeGames: () => void;
+    let unsubscribeUsers: () => void;
 
     const groupBy = <T, K extends keyof any>(arr: T[], key: (i: T) => K) =>
       arr.reduce((groups, item) => {
@@ -302,18 +302,24 @@
                 console.log(`player1: ${record.player1}`)
                 console.log(`player2: ${record.player2}`)
                 var game = games.find((g) => g.record.id == record.id)
-                // var gameIndex = games.findIndex((g) => g.record.id == record.id)
-                // var newGames = []
-                // for (let i=0; i < games.length; i++) {
-                //     newGames.push(games[i])
-                // }
-                // newGames[gameIndex] = new Game(gameRecord)
-                // games = newGames
-                // game.record.player1 = gameRecord.expand.player1
                 game.record.player2 = gameRecord.expand.player2.id
-                // game.player2 = playerName(record.player2)
-                // console.log(`p2: ${game.player2}`)
                 updateScore()
+            }
+          });
+
+        unsubscribeUsers = await pb
+          .collection('users')
+          .subscribe('*', async ({ action, record }) => {
+            console.log(`------------------------users: got event '${action}'`);
+            if (action === 'create') {
+                users[record.id] = record
+            }
+            if (action === 'delete') {
+                // TODO: not supported
+                // users[record.id] = nil
+            }
+            if (action === 'update') {
+                users[record.id] = record
             }
           });
     });
@@ -322,6 +328,7 @@
     onDestroy(() => {
         unsubscribeTurns?.()
         unsubscribeGames?.()
+        unsubscribeUsers?.()
 		cancelAnimationFrame(frame);
     });
 
@@ -345,19 +352,8 @@
         return topPlayers = results.items
     }
 
-    // async function bestPlayers() {
-    //     const results = await pb.collection('top_players').getList(1,20, {})
-    //     console.log("Got best players:", results.items)
-    //     return results.items
-    // }
-
     function playerName(id) {
         return users[id].name
-        // TODO: CONTINUE HERE: get the users into a local collection and keep it up to date, so that
-        //       the games can have a Header with names. The player2 name does not arrive on time (is async).
-        // const user = await pb.collection('users').getOne(id, {})
-        // console.log("1. user name:", user.name)
-        // return user.name
     }
 
 	(function update() {
@@ -388,7 +384,6 @@
     <div class="blitz">
         {#each games as game}
             <div>
-            <p>{game.record.id}</p>
             <p>{game.record.expand.player1.name} vs {game.player2()} </p>
             <Tooltip title={tip != "" ? tip : (game.isOver() ? 'Game Over' : (game.isMyTurn() ? 'Playing ' + ($currentUser.id == game.record.player1 ? "X" : "O") : 'Wait'))}>
                 <div class="frame" style="background-color: {game.isMyTurn() ? 'orange' : 'black'}">
