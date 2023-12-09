@@ -6,7 +6,7 @@ This is a little experiment project to learn Svelte. It helped me explore Svelte
 
 ## Requirements
 
-Tic-Tac-Blitz requires tic-tac-blitz-pb as its pocketbase-powered backend. Please clone from [here](https://github.com/jleija/tic-tac-blitz-pb).
+Tic-Tac-Blitz requires [here](https://github.com/jleija/tic-tac-blitz-pb) as its pocketbase-powered backend.
 
 Depends on Svelte + TS + Vite.
 
