@@ -74,12 +74,13 @@
         ]
 
         this.winningMask = function(gameMask) {
+            var allWinningMasks = 0
             for (let mask of winningMasks) {
                 if ((mask & gameMask) == mask) {
-                    return mask
+                    allWinningMasks |= mask
                 }
             }
-            return 0
+            return allWinningMasks
         }
 
         this.turnAtPosition = function(pos) {
@@ -97,8 +98,24 @@
                    || ((positionMask(pos) & this.winningMask(this.oMask)) != 0)
         }
 
+        this.isDraw = function() {
+            // all positions played and no strike-through
+            if (((this.xMask | this.oMask) == 0b111_111_111) && !this.isStrikeThroughPosition()) {
+                return true
+            }
+            // all positions but the last has been played
+            if (this.turns().length == 8) {
+                let nextMark = this.turns()[0].mark // first player is also last
+                let openPosition = ~(this.xMask | this.oMask)
+                return (nextMark == "x") 
+                    ? this.winningMask(this.xMask | openPosition) == 0
+                    : this.winningMask(this.oMask | openPosition) == 0
+            }
+            return false
+        }
+
         this.isOver = function() {
-            return (this.winningMask(this.xMask) != 0) || (this.winningMask(this.oMask) != 0)
+            return (this.winningMask(this.xMask) != 0) || (this.winningMask(this.oMask) != 0) || this.isDraw()
         }
 
         this.isMyTurn = function() {
@@ -133,6 +150,12 @@
                 return
             }
             
+            if (!this.isMyTurn()) {
+                console.log("Not your turn")
+                this.showTip("Not your turn")
+                return
+            }
+
             if ((this.record.player1 != $currentUser.id) && this.record.player2 && (this.record.player2 != $currentUser.id)) {
                 console.log("You are not playing this game:", $currentUser.id, this.record.player1, this.record.player2)
                 this.showTip("Not your game")
@@ -155,12 +178,6 @@
                 mark = "o"
             }
 
-            if (!this.isMyTurn()) {
-                console.log("Not my turn")
-                return
-            }
-
-
             const data = {
                 game: this.record.id,
                 player: $currentUser.id,
@@ -175,8 +192,10 @@
 
             if (this.isOver())
             {
-                await pb.collection('games').update(this.record.id, { winner: $currentUser.id })
-                updateScore()
+                if (!this.isDraw()) {
+                    await pb.collection('games').update(this.record.id, { winner: $currentUser.id })
+                    updateScore()
+                }
             }
         }
 
@@ -390,7 +409,7 @@
                     <div class="tictactoe">
                     {#each positions as position}
                         {#if game.turnAtPosition(position) }
-                            <Square position={position} mark={game.turnAtPosition(position).mark} game={game} color={game.isStrikeThroughPosition(position) ? "red" : "white"} />
+                            <Square position={position} mark={game.turnAtPosition(position).mark} game={game} color={game.isStrikeThroughPosition(position) ? "red" : (game.isOver() ? "black" : "white")} />
                         {:else}
                             <Square position={position} mark="" game={game} color="white"/>
                         {/if}

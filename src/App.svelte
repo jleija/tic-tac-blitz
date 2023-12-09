@@ -7,6 +7,5 @@
 {#if $currentUser}
     <TicTacToe />
 {:else}
-    <h2>Tic Tac Blitz</h2>
     <Login />
 {/if}

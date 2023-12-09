@@ -37,7 +37,7 @@
 </script>
 
 {#if !$currentUser}
-    <h2>Tic_tac_blitz</h2>
+    <h2>Tic-Tac-Blitz</h2>
     <form on:submit|preventDefault>
         <input
             placeholder="Username"
@@ -51,6 +51,8 @@
         />
         <button on:click={signUp}>Sign Up</button>
         <button on:click={login}>Login</button>
-        <p>{error}</p>
+        <p style="color:red">{error}</p>
+        <p>username should be at least 3 characters</p>
+        <p>password should be at least 8 characters</p>
     </form>
 {/if}
